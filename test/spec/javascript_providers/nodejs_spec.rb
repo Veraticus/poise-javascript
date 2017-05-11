@@ -1,5 +1,5 @@
 #
-# Copyright 2015-2016, Noah Kantrowitz
+# Copyright 2015-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,17 +36,17 @@ describe PoiseJavascript::JavascriptProviders::NodeJS do
 
   context 'with version ""' do
     let(:javascript_version) { '' }
-    it_behaves_like 'nodejs provider', 'nodejs-4.5.0', 'https://nodejs.org/dist/v4.5.0/node-v4.5.0-linux-x64.tar.gz'
+    it_behaves_like 'nodejs provider', 'nodejs-6.10.3', 'https://nodejs.org/dist/v6.10.3/node-v6.10.3-linux-x64.tar.gz'
   end # /context with version ""
 
   context 'with version nodejs' do
     let(:javascript_version) { 'nodejs' }
-    it_behaves_like 'nodejs provider', 'nodejs-4.5.0', 'https://nodejs.org/dist/v4.5.0/node-v4.5.0-linux-x64.tar.gz'
+    it_behaves_like 'nodejs provider', 'nodejs-6.10.3', 'https://nodejs.org/dist/v6.10.3/node-v6.10.3-linux-x64.tar.gz'
   end # /context with version nodejs
 
   context 'with version nodejs-0.10' do
     let(:javascript_version) { 'nodejs-0.10' }
-    it_behaves_like 'nodejs provider', 'nodejs-0.10.40', 'https://nodejs.org/dist/v0.10.40/node-v0.10.40-linux-x64.tar.gz'
+    it_behaves_like 'nodejs provider', 'nodejs-0.10.48', 'https://nodejs.org/dist/v0.10.48/node-v0.10.48-linux-x64.tar.gz'
   end # /context with version nodejs-0.10
 
   context 'with version nodejs-0.10.30' do
@@ -56,7 +56,7 @@ describe PoiseJavascript::JavascriptProviders::NodeJS do
 
   context 'with version 0.12' do
     let(:javascript_version) { '0.12' }
-    it_behaves_like 'nodejs provider', 'nodejs-0.12.7', 'https://nodejs.org/dist/v0.12.7/node-v0.12.7-linux-x64.tar.gz'
+    it_behaves_like 'nodejs provider', 'nodejs-0.12.18', 'https://nodejs.org/dist/v0.12.18/node-v0.12.18-linux-x64.tar.gz'
   end # /context with version 0.12
 
   context 'with 32-bit OS' do
@@ -66,7 +66,7 @@ describe PoiseJavascript::JavascriptProviders::NodeJS do
         version ''
       end
     end
-    it_behaves_like 'nodejs provider', 'nodejs-4.5.0', 'https://nodejs.org/dist/v4.5.0/node-v4.5.0-linux-x86.tar.gz'
+    it_behaves_like 'nodejs provider', 'nodejs-6.10.3', 'https://nodejs.org/dist/v6.10.3/node-v6.10.3-linux-x86.tar.gz'
   end # /context with 32-bit OS
 
   context 'action :uninstall' do
@@ -77,6 +77,24 @@ describe PoiseJavascript::JavascriptProviders::NodeJS do
       end
     end
 
-    it { is_expected.to uninstall_poise_languages_static('/opt/nodejs-4.5.0') }
+    it { is_expected.to uninstall_poise_languages_static('/opt/nodejs-6.10.3') }
   end # /context action :uninstall
+
+  describe 'release checker' do
+    let(:class_versions) { described_class.static_versions }
+    let(:node_versions) { Chef::JSONCompat.parse(Chef::HTTP::Simple.new('https://nodejs.org/').get('/dist/index.json')) }
+    let(:current_lts) { node_versions.find {|ver| ver['lts'] }['version'][/v(.*)/, 1] }
+    let(:desired_versions) do
+      versions = node_versions.map {|ver| ver['version'][/v(.*)/, 1] }
+      clean_versions = versions.each_with_object([]) do |ver, acc|
+        minor = ver[/^(.*?\.)\d+$/, 1]
+        unless acc.any? {|v| v.start_with?(minor) }
+          acc << ver
+        end
+      end
+      clean_versions.delete(current_lts)
+      [current_lts] + clean_versions
+    end
+    it { expect(desired_versions.join("\n")).to eq(class_versions.join("\n")), "NodeJS versions out of date:\n%w{#{desired_versions.join(' ')}}" }
+  end # /describe release checker
 end
